@@ -3,6 +3,7 @@ import select
 
 HOST = "127.0.0.1"
 PORT = 12345
+timeout = 3
 
 socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 socket.bind((HOST,PORT))
@@ -15,10 +16,10 @@ while True:
 		print("File name:", data)
 		file = data.strip()
 
-	f = open(file_name, 'wb')
+	f = open(file, 'wb')
 
 	while True:
-		ready = select.select([sock], [], [], timeout)
+		ready = select.select([socket], [], [], timeout)
 		if ready[0]:
 			data, address = socket.recvfrom(1024)
 			f.write(data)
