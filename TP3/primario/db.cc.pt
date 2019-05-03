@@ -1,0 +1,28 @@
+;
+; BIND data file for local loopback interface
+;
+$TTL	604800
+@	IN	SOA	Servidor1.cc.pt. Grupo13.cc.pt. (
+			      2		; Serial
+			 604800		; Refresh
+			  86400		; Retry
+			2419200		; Expire
+			 604800 )	; Negative Cache TTL
+;
+@       IN      NS     Servidor1.cc.pt.
+@       IN      NS     Urano.cc.pt.
+@       IN      MX 10  mail.cc.pt.
+@       IN      MX 20  mail2.cc.pt.
+
+Servidor1 IN A 10.1.1.1
+www IN A 10.1.1.3
+Urano IN A 10.2.2.3
+mail IN A 10.1.1.3
+mail2 IN A 10.1.1.2
+Cliente1 IN A 10.4.4.1
+Alfa IN A 10.3.3.1
+Beta IN A 10.3.3.2
+Gama IN A 10.3.3.3
+Grupo13 IN CNAME Cliente1
+dns IN CNAME Servidor1
+dns2 IN CNAME Urano
