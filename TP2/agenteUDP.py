@@ -1,5 +1,4 @@
 import socket
-import time
 import select
 
 
@@ -7,16 +6,33 @@ import select
 
 class AgentUDP:
 
-	serveraddress = "127.0.0.1",12345
-
-	
 
 
 	def __init__(self, address, port):
 		self.agentSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 		self.list_address = address
 		self.list_port = port
-		self.agentSock.bind((self.list_address,int(self.list_port)))
+		self.send_addr = ""
+		self.send_port = 0
+		self.rlock = RLock()
+		self.cond = Condition()
+
+
+	def bind(self):
+		self.agentSock.bind((self.list_address,int(self.list_port)))	
+
+
+	def sendPacket(self,packet):
+		self.agentSock.sendto(packet.encode(), (self.send_addr, self.send_port))
+		print ("Pacote enviado")
+
+	def receivePacket(self):
+		packet,address = self.agentSock.recvfrom(1500)
+		return packet,address
+		
+
+
+
 
 
 	def put_file(self,file):
@@ -40,7 +56,7 @@ class AgentUDP:
 
 
 		while (data):
-			if(self.agentSock.sendto(data,self.address)):
+			if(self.agentSock.sendto(data,address)):
 				data = f.read(1024)
 				time.sleep(0.02)
 
@@ -53,13 +69,14 @@ class AgentUDP:
 			if data:
 				print("File name:", data)
 				print(address)
-				reply = input("Accept file from address:  \t Yes-1 | No - 0 \n" )
+				reply = input("Accept file from address:\tYes-1 | No - 0 \n" )
 				if reply == "1":
 					self.agentSock.sendto(reply.encode(),address)
 					file = data.decode()
 					f = open(path+file, 'wb')
 				else:
 					self.agentSock.sendto(reply.encode(),address)
+					end = 0
 
 			while int(reply):
 				ready = select.select([self.agentSock], [], [], 3)
