@@ -1,6 +1,5 @@
 import socket
-import select
-
+import json
 
 
 
@@ -14,24 +13,25 @@ class AgentUDP:
 		self.list_port = port
 		self.send_addr = ""
 		self.send_port = 0
-		self.rlock = RLock()
-		self.cond = Condition()
-
-
-	def bind(self):
-		self.agentSock.bind((self.list_address,int(self.list_port)))	
-
-
-	def sendPacket(self,packet):
-		self.agentSock.sendto(packet.encode(), (self.send_addr, self.send_port))
-		print ("Pacote enviado")
-
-	def receivePacket(self):
-		packet,address = self.agentSock.recvfrom(1500)
-		return packet,address
+		self.state = "NOTCONNECTED"
 		
 
 
+	def bind(self):
+		self.agentSock.bind((self.list_address,int(self.list_port)))
+
+	def sendPacket(self,packet):
+		str = json.dumps(packet.packet)
+		self.agentSock.sendto(str.encode("utf-8"), (self.send_addr, self.send_port))
+		print ("Pacote enviado" + str)
+
+	def receivePacket(self):
+		packet,address = self.agentSock.recvfrom(1500)
+		packet = json.loads(packet.decode())
+
+
+		return packet,address
+		
 
 
 

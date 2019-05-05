@@ -1,10 +1,10 @@
 
 from agenteUDP import AgentUDP
-import sys
-import time
+from timer import Timer 
+from pdu import PDU
+import time, sys, threading, select
 from queue import Queue
 from threading import Thread
-
 
 
 class TransfereCC:
@@ -14,161 +14,166 @@ class TransfereCC:
     def __init__(self, agenteUDP):
         self.agent = agenteUDP
         self.start_w = 0
-        self.send_time = Timer(0.5)
-        self.rlock = RLock()
-        self.cond = Condition()
+        self.send_time = Timer(2)
+        self.input = False
+        self.connected = False
+        self.rlock = threading.RLock()
+        self.inputLock = threading.RLock()
+        self.cond = threading.Condition()
 
     
 
     def sender_window (self,n_packets, packets):
         self.rlock.acquire()
-            self.start_w = 0
+        self.start_w = 0
+        self.rlock.release()
         next_p = 0
         window = min(4, n_packets - self.start_w)
+        
         while (self.start_w < n_packets):
             self.rlock.acquire()
-
             while next_p < self.start_w + window:
                 self.agent.sendPacket(packets[next_p])
                 next_p += 1
 
             if not self.send_time.running():
-                send_time.start()
+                self.send_time.start()
 
-            while send_time.running() and not send_time.timeout():
+            while self.send_time.running() and not self.send_time.timeout():
                 self.rlock.release()
                 time.sleep(0.05)
                 self.rlock.acquire()
 
-            if send_time.timeout():
-                send_time.stop()
-                next_p = base
+            if self.send_time.timeout():
+                self.send_time.stop()
+                print("TIMEOUT; RESENDING...")
+                next_p = self.start_w
 
             else:
                 window = min(4, n_packets - self.start_w)
 
             self.rlock.release()
-                
+        
+        print ("Base: " + str(self.start_w) + "Window: " + str(window) + "NPacks: " + str(n_packets))
+        if(packets[n_packets-1] != "akw"):
+            packet = makePacket("",next_p,0)
+            self.agent.sendPacket(packet[0])    
 
     
     
-    def receive_akn(packet):
-        if packet >= base:
-            self.rlock.acquire()
-            base += packet+1
+    def receive_akn(self,packet):
+        self.rlock.acquire()
+        if packet["sequence"] >= self.start_w:
+            self.start_w += packet["sequence"] + 1
             self.send_time.stop()
-            self.rlock.release()
+        self.rlock.release()
 
 
 
 
 
 
-    def receiver_window(self,packets,expected):
-        expected = 0
-        for packet in packets:    
+    def receiver_window(self,packet,q,expected,address):
 
-            if (packet.seq_num == expected):
+        self.agent.send_addr = address[0]
+        self.agent.send_port = int(address[1])
+        
+        if packet["data"] == "akw" or packet["data"]=="":
+            self.receive_akn(packet)
+
+        
+        elif(packet["sequence"] == expected):                    
+            q.put(makePacket("akw",expected,1))
+            expected += 1
+
+            if packet["data"] == "CN":    
+                self.inputLock.acquire()
+                self.input = True
+                self.inputLock.release()
+            
+            elif (packet["data"] == "y"):
+                self.inputLock.acquire()
+                self.connected = True
+                self.inputLock.release()
+                print("Conectado")
+
                 
-                q.put (expected)
-                expected += 1
-
             else:
-                q.put(expected-1)
-
-            return expected
-
-
+                q.put(makePacket("akw",expected-1,1))
+            
+        return expected
 
 
 
     def listen(self,q):
         self.agent.bind()
         print ("Entrei\n")
+        expected = 0
         while True: 
             packet,address = self.agent.receivePacket()
-            packet = packet.decode()
-            print(packet)
-            #checksum
-            q.put("akw")
-            if packet == "CN":    
-                self.agent.send_addr = address[0]
-                self.agent.send_port = address[1]
-                reply = input("Aceitar conexão?")
-                #prepare packet
-                q.put(reply)
+            expected = self.receiver_window(packet,q,expected,address)
 
 
-            elif (packet == "y"):
-                self.agent.send_addr = address[0]
-                self.agent.send_port = int(address[1])
-                #prepare packet
-                q.put("y") 
-
-            elif (packet == "akw"):
-                receive_akn(packet)
-
-
+            while (packet["offset"] == 1):
+                packet,address = self.agent.receivePacket()
+                expected = self.receiver_window(packet,q,expected,address)
 
 
 
     def sender(self,q):
         while True:
             while (not q.empty()):
-                i = 0
-                while(i<q.qsize())
-                    packets[i++] = q.get()
-
-                self.sender_window(q.qsize(),packets)    
+                packets = q.get()
+                self.sender_window(len(packets),packets)    
 
 
     def client(self,q):
+        print("1-Conectar\n")
         while True:
-            reply = input("1-Connectar\n")
-            if reply == "1":
-                address = input("IP:PORTA para connectar:\n")
-                addr = address.split(":")
-                self.agent.send_addr = addr[0]
-                self.agent.send_port = int(addr[1])
-                
-                q.put("CN")
-                with self.agent.cond:
-                    cv.wait()
+
+
+            ready = select.select([sys.stdin],[],[],1)[0]
+            if ready:
+                reply = sys.stdin.readline().rstrip('\n')
                 
 
+                if not self.connected:
+                    if reply == "1" :
+                        print("IP:PORTA para a conexão:\n")
+                        while True:
+                            ready = select.select([sys.stdin],[],[],1)[0]
+                            if ready:
+                                address = sys.stdin.readline().rstrip('\n')
+                                addr = address.split(":")
+                                self.agent.send_addr = addr[0]
+                                self.agent.send_port = int(addr[1])
+                                q.put(makePacket("CN",0,1))
+                                break
+
+                else:...
+
+            self.inputLock.acquire()
+            if (self.input and not self.connected):
+                print(str(self.input) + str(self.connected))
+                reply = input("Deseja aceitar a conexão?\n")
+                q.put(makePacket(reply,0,1))
+                if reply == "y":
+                    self.connected = True
+
+            self.inputLock.release()
 
 
 
-
-    def connect(self,ip_addr,port):
-        changeState("TC")
-        self.send_addr = ip_addr
-        self.send_port = port
-        i=0
-        while (self.state == "TC" and i<10):
-            self.agentSock.sendto("CR".encode(),self.send_addr,self.port)
-            time.sleep(1)
-            print ("Retrying...")
-            i = i+1
-
-        if (self.state == "TC"):
-            changeState("DC")
-            print ("No response from server")
-
-        elif (self.state == "CN"):
-            print("Connected!")
-
-            
-
-
+def makePacket(data,seq_number,offset):
+    packet = PDU(offset,len(data),seq_number,data,0)
+    return [packet]
 
 
 
 def main(): 
     address = sys.argv[1].split(":")
     agentUDP = AgentUDP(address[0],address[1])
-    tipo = "S"
-    transfereCC = TransfereCC(agentUDP,tipo)
+    transfereCC = TransfereCC(agentUDP)
     q = Queue()
     thread1 = Thread(target=transfereCC.listen,args=[q])
     thread2 = Thread(target=transfereCC.sender,args=[q])

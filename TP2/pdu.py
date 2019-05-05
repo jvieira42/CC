@@ -2,12 +2,14 @@ import struct
 
 class PDU:
      
-     def __init__(self,offset,length,csum = 0,sequence,data):
-          self.frag_offset = offset
-          self.pck_len = length
-          self.checksum = csum
-          self.data = data
-          self.frag_seq = sequence
+     def __init__(self,offset,length,sequence,data,csum = 0):
+          self.packet = {}
+          
+          self.packet["offset"] = offset
+          self.packet["length"] = length
+          self.packet["sequence"] = sequence
+          self.packet["csum"] = csum
+          self.packet["data"] = data 
 
      def checksum_calc(data,src_ip,dest_ip):
           csum = 0
@@ -45,10 +47,7 @@ class PDU:
 
 
 
-def makePacket(data,seq_num,n_frag):
-     
-     packet = PDU(0,data.length(),0,data,seq_num)
-     return packet
+
      
 
 

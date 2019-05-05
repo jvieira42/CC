@@ -13,7 +13,7 @@ class Timer:
 
 	def stop(self):
 		if self.start_time != self.TIMER_STOP:
-			self.start_time = time.time()
+			self.start_time = self.TIMER_STOP
 
 	def running(self):
 		return self.start_time != self.TIMER_STOP
