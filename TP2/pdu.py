@@ -2,14 +2,14 @@ import struct
 
 class PDU:
      
-     def __init__(self,offset,length,sequence,data,csum = 0):
+     def __init__(self,type,sequence,offset,csum,data):
           self.packet = {}
-          
-          self.packet["offset"] = offset
-          self.packet["length"] = length
+          self.packet["type"] = type
           self.packet["sequence"] = sequence
+          self.packet["offset"] = offset
           self.packet["csum"] = csum
           self.packet["data"] = data 
+          
 
      def checksum_calc(data,src_ip,dest_ip):
           csum = 0

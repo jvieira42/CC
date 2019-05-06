@@ -13,16 +13,19 @@ class StatusTable:
 		self.dictionary.append(dict)
 
 	def print_table(self):
-		print(self.dictionary) 
+		print(self.dictionary)
 
 
 	def get_type(self,type):
+		table = []
 		for dict in self.dictionary:
 			if dict["Type"] == type: 
-				print(dict["Type"])
+				table.append(dict)
+		return table
 
+	def has_file(self,file):
+		for dict in self.dictionary:
+			if dict ["Type"] == "Upload" and dict["File"] == file:
+				return True
 
-
-StatusTable = StatusTable()
-StatusTable.update("PUT","","","")
-StatusTable.get_type("PUT")
+		return False

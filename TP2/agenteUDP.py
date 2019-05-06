@@ -1,5 +1,4 @@
-import socket
-import json
+import socket, json, select 
 
 
 
@@ -22,12 +21,19 @@ class AgentUDP:
 
 	def sendPacket(self,packet):
 		str = json.dumps(packet.packet)
-		self.agentSock.sendto(str.encode("utf-8"), (self.send_addr, self.send_port))
+		
+		_,ready,_ = select.select([],[self.agentSock],[])
+		if ready[0]:
+			self.agentSock.sendto(str.encode("utf-8"), (self.send_addr, self.send_port))
 		print ("Pacote enviado" + str)
 
 	def receivePacket(self):
-		packet,address = self.agentSock.recvfrom(1500)
-		packet = json.loads(packet.decode())
+		ready = select.select([self.agentSock],[],[])
+		packet = 0
+		address = ""
+		if ready[0]:
+			packet,address = self.agentSock.recvfrom(1500)
+			packet = json.loads(packet.decode())
 
 
 		return packet,address
