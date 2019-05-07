@@ -3,14 +3,29 @@ class StatusTable:
 	def __init__(self):
 		self.dictionary = []
 
-	def update(self,type,file_name,ip_orig,port_orig):
+	
+	def entry(self,type,file_name,ip_orig,port_orig,n_packets):
 
 		dict = {"Type" : type,
 				"File" : file_name,
 				"IP Origem" : ip_orig,
-				"Porta Origem" : port_orig}
+				"Porta Origem" : port_orig,
+				"Número de pacotes" : n_packets,
+				"Pacotes recebidos" : 0,				
+				"Pacotes perdidos": 0}
 
-		self.dictionary.append(dict)
+
+		return dict
+
+
+
+	def update(self,entry):
+
+		for dict in self.dictionary:
+			if dict["Type"] == entry["Type"] and dict["File"] == entry["File"]:
+				self.dictionary.remove(dict)
+
+		self.dictionary.append(entry)
 
 	def print_table(self):
 		print(self.dictionary)
@@ -29,3 +44,8 @@ class StatusTable:
 				return True
 
 		return False
+
+	def pacoteRecebido(self):
+		self.dictionary[-1]["Pacotes recebidos"] += 1
+	def pacotePerdido(self):
+		self.dictionary[-1]["Pacotes perdidos"] += 1

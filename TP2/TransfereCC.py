@@ -43,7 +43,7 @@ class TransfereCC:
 
 
     def client(self,q):
-        print("1-Conectar\n")
+        print("1-Conectar")
         while True:
             ready = select.select([sys.stdin],[],[],1)[0]
             if ready:
@@ -68,7 +68,7 @@ class TransfereCC:
 
                     if reply[0]== "put_file":
                         self.statusTL.acquire()
-                        self.statusTable.update("Upload",reply[1],self.agent.list_address,self.agent.list_port)
+                        self.statusTable.update(self.statusTable.entry("Upload",reply[1],self.agent.list_address,self.agent.list_port,0))
                         self.statusTL.release()
 
                     elif reply[0] =="ls":
@@ -109,8 +109,6 @@ class TransfereCC:
         else:   
             while (self.start_w < n_packets):
                 self.rlock.acquire()
-                print ("Base: " + str(self.start_w) + "Window: " + str(window) + "NPacks: " + str(n_packets) + "Next_Packet: " + str(n_packets))
-
 
                 while next_p < self.start_w + window:
                     self.agent.sendPacket(packets[next_p])
@@ -151,16 +149,21 @@ class TransfereCC:
             while data:
                 if sys.getsizeof(data)<1024:
                     break
-                packet = makePacket("get",seq,1,data.decode('utf-8'))
+                packet = makePacket("get",seq,1,data.decode())
                 packets.append(packet[0])
                 seq += 1
 
             if data:
-                packet = makePacket("get",seq,0,data.decode('utf-8'))
+                packet = makePacket("get",seq,0,data.decode())
                 packets.append(packet[0])
             
-            q.put(packets)
             fd.close()
+            self.statusTL.acquire()
+            self.statusTable.update(self.statusTable.entry("Upload",file,self.agent.list_port,self.agent.list_port,len(packets)))
+            update = makePacket("TU",0,0,self.statusTable.entry("Download",file,self.agent.list_address,self.agent.list_port,len(packets)))
+            self.statusTL.release()
+            q.put(update)
+            q.put(packets)
         except IOError:
             print("Can't open file for sending")
             q.put(makePacket("err",0,0,"Server can't open file for sending"))
@@ -168,16 +171,13 @@ class TransfereCC:
 
 
 
-    def receive_akn(self,packet,expected):
+    def receive_akn(self,packet):
         self.rlock.acquire()
         if packet["sequence"] >= self.start_w:
             self.start_w += 1
             self.send_time.stop()
         self.rlock.release()
         
-        return expected
-
-
 
 
     def receiver_window(self,packet,q,expected,address,file):
@@ -186,7 +186,7 @@ class TransfereCC:
         self.agent.send_port = int(address[1])
         
         if packet["type"] == "akw":
-           expected = self.receive_akn(packet,expected)
+           self.receive_akn(packet)
 
         
         elif(packet["sequence"] == expected):
@@ -207,6 +207,12 @@ class TransfereCC:
                     self.inputLock.release()
                     print("Conectado\n INSTRUÇÕES: put_file file | \n")
 
+                elif (packet["type"] == "TU"):
+                    self.statusTL.acquire()
+                    self.statusTable.update(packet["data"])
+                    self.statusTL.release()
+
+                
                 elif (packet["type"] == "ls"):
                     self.statusTL.acquire()
                     table = self.sendTable("Upload")
@@ -216,38 +222,46 @@ class TransfereCC:
                     else:
                         q.put(makePacket("err",0,0,"No Files!"))
 
+                
                 elif (packet["type"] == "ST"):
                     print(packet["data"])
 
 
+                
+                elif(packet["type"] == "fgt"):
+                        if self.statusTable.has_file(packet["data"]):
+                            Thread(target=self.send_file,args=(packet["data"],q)).start()
+                        else:
+                            q.put(makePacket("err",0,0,"No file " + packet["data"] +" found!"))
+
+                
+                elif(packet["type"] == "err"):
+                        print(packet["data"])
+            
+                
+
                 elif(packet["type"] == "get"):
 
                     if (packet["sequence"] == 0):
-                        self.statusTL.acquire()
+
                         try:
                             file = open(packet["data"],'wb')
-                            self.statusTable.update("Download",packet["data"],self.agent.send_addr,self.agent.send_port)
                             print ("Receiving file!")
                         
                         except IOError:
                             print ("Can't open file!\n")
 
-                        self.statusTL.release()
 
                     else:
                         file.write(packet["data"].encode())
-                        time.sleep(0.02)
+
                         if(packet["offset"] == 0):
                             file.close()
-                
-                elif(packet["type"] == "fgt"):
-                        if self.statusTable.has_file(packet["data"]):
-                            Thread(target=self.send_file,args=(packet["data"],q)).start()
+                    
+                    self.statusTL.acquire()
+                    self.statusTable.pacoteRecebido()
+                    self.statusTL.release()
 
-
-                elif(packet["type"] == "err"):
-                        print(packet["data"])
-            
             else:
                 expected = 0
 
