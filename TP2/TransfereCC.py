@@ -86,12 +86,16 @@ class TransfereCC:
 
             self.inputLock.acquire()
             if (self.input and not self.connected):
-                print(str(self.input) + str(self.connected))
-                reply = input("Deseja aceitar a conexão?\n")
-                q.put(makePacket(reply,0,0,""))
+                reply = input("Deseja aceitar a conexão? (y/n)\n")
                 if reply == "y":
-                    print("Conectado\n INSTUÇÕES: put_file file | \n")
+                    q.put(makePacket(reply,0,0,""))
+                    print("\nConectado\nINSTRUÇÕES: put_file file | get_file file | get ls\n")
                     self.connected = True
+                else:
+                    q.put(makePacket(reply,0,0,""))
+                    print("Conexão rejeitada\n")
+                    self.connected = False
+
 
             self.inputLock.release()
 
@@ -104,7 +108,7 @@ class TransfereCC:
         window = min(4, n_packets - self.start_w)
         self.rlock.release()
 
-        if(packets[n_packets-1].packet["type"] == "akw"):
+        if(packets[n_packets-1].packet["type"] == "ACK"):
             self.agent.sendPacket(packets[0])
         else:   
             while (self.start_w < n_packets):
@@ -185,7 +189,7 @@ class TransfereCC:
         self.agent.send_addr = address[0]
         self.agent.send_port = int(address[1])
         
-        if packet["type"] == "akw":
+        if packet["type"] == "ACK":
            self.receive_akn(packet)
 
         
@@ -193,7 +197,7 @@ class TransfereCC:
             
             if packet["type"] != "end":
 
-                q.put(makePacket("akw",expected,packet["offset"],""))
+                q.put(makePacket("ACK",expected,packet["offset"],""))
                 expected += 1
 
                 if packet["type"] == "CN":    
@@ -205,7 +209,7 @@ class TransfereCC:
                     self.inputLock.acquire()
                     self.connected = True
                     self.inputLock.release()
-                    print("Conectado\n INSTRUÇÕES: put_file file | \n")
+                    print("\nConectado\nINSTRUÇÕES: put_file file | get_file file | get ls\n")
 
                 elif (packet["type"] == "TU"):
                     self.statusTL.acquire()
@@ -266,7 +270,7 @@ class TransfereCC:
                 expected = 0
 
         else:
-            q.put(makePacket("akw",expected-1,packet["offset"],""))
+            q.put(makePacket("ACK",expected-1,packet["offset"],""))
             
         return expected,file
 

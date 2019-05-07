@@ -10,10 +10,9 @@ class StatusTable:
 				"File" : file_name,
 				"IP Origem" : ip_orig,
 				"Porta Origem" : port_orig,
-				"Número de pacotes" : n_packets,
+				"Numero de pacotes" : n_packets,
 				"Pacotes recebidos" : 0,				
 				"Pacotes perdidos": 0}
-
 
 		return dict
 
@@ -28,7 +27,7 @@ class StatusTable:
 		self.dictionary.append(entry)
 
 	def print_table(self):
-		print(self.dictionary)
+		print(self.dictionary+"\n")
 
 
 	def get_type(self,type):
