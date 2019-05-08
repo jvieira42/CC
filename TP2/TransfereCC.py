@@ -132,7 +132,6 @@ class TransfereCC:
     
     def send_file(self,file,q):
         try:
-            print("OPENING!!!!")
             fd = open (file,'rb')
             seq = 1
             packets = []
@@ -146,7 +145,6 @@ class TransfereCC:
                 seq += 1
 
             packets[-1].packet["offset"] = 0
-            print("CLOSING!!!")
             fd.close()
             self.statusTL.acquire()
             self.statusTable.update(self.statusTable.entry("Upload",file,self.agent.list_port,self.agent.list_port,len(packets)))
