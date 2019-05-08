@@ -3,14 +3,12 @@ from agenteUDP import AgentUDP
 from timer import Timer 
 from statusTable import StatusTable
 from pdu import PDU
-import time, sys, threading, select
+import time, sys, threading, select, struct
 from queue import Queue
 from threading import Thread
 
 
 class TransfereCC:
-
-
 
     def __init__(self, agenteUDP):
         self.agent = agenteUDP
@@ -24,8 +22,6 @@ class TransfereCC:
         self.cond = threading.Condition()
         self.statusTable = StatusTable()
 
-
-
     def listen(self,q):
         self.agent.bind()
         file = 0
@@ -34,13 +30,11 @@ class TransfereCC:
             packet,address = self.agent.receivePacket()
             expected,file = self.receiver_window(packet,q,expected,address,file)
 
-
     def sender(self,q):
         while True:
             while (not q.empty()):
                 packets = q.get()
                 self.sender_window(len(packets),packets)    
-
 
     def client(self,q):
         print("1-Conectar")
@@ -60,7 +54,7 @@ class TransfereCC:
                                 addr = address.split(":")
                                 self.agent.send_addr = addr[0]
                                 self.agent.send_port = int(addr[1])
-                                q.put(makePacket("CN",0,0,""))
+                                q.put(makePacket("CN",0,0,"",self.agent.send_addr,self.agent.list_address))
                                 break
 
                 else: 
@@ -78,24 +72,20 @@ class TransfereCC:
 
                     elif reply[0] == "get":
                         if reply[1] == "ls":
-                            q.put(makePacket("ls",0,0,""))
+                            q.put(makePacket("ls",0,0,"",self.agent.send_addr,self.agent.list_address))
                     
                     elif reply[0] == "get_file":
-                        q.put(makePacket("fgt",0,0,reply[1]))
+                        q.put(makePacket("fgt",0,0,reply[1],self.agent.send_addr,self.agent.list_address))
 
 
             self.inputLock.acquire()
             if (self.input and not self.connected):
-                reply = input("Deseja aceitar a conexão? (y/n)\n")
+                print(str(self.input) + str(self.connected))
+                reply = input("Deseja aceitar a conexão?\n")
+                q.put(makePacket(reply,0,0,"",self.agent.send_addr,self.agent.list_address))
                 if reply == "y":
-                    q.put(makePacket(reply,0,0,""))
-                    print("\nConectado\nINSTRUÇÕES: put_file file | get_file file | get ls\n")
+                    print("Conectado\n INSTRUÇÕES: put_file file | \n")
                     self.connected = True
-                else:
-                    q.put(makePacket(reply,0,0,""))
-                    print("Conexão rejeitada\n")
-                    self.connected = False
-
 
             self.inputLock.release()
 
@@ -108,7 +98,7 @@ class TransfereCC:
         window = min(4, n_packets - self.start_w)
         self.rlock.release()
 
-        if(packets[n_packets-1].packet["type"] == "ACK"):
+        if(packets[n_packets-1].packet["type"] == "akw"):
             self.agent.sendPacket(packets[0])
         else:   
             while (self.start_w < n_packets):
@@ -137,7 +127,7 @@ class TransfereCC:
                 self.rlock.release()
             
             
-                packet = makePacket("end",next_p,0,"")
+                packet = makePacket("end",next_p,0,"",self.agent.send_addr,self.agent.list_address)
                 self.agent.sendPacket(packet[0])    
 
     
@@ -147,33 +137,30 @@ class TransfereCC:
             fd = open (file,'rb')
             seq = 1
             packets = []
-            packet = makePacket("get",0,1,file)
+            packet = makePacket("get",0,1,file,self.agent.send_addr,self.agent.list_address)
             packets.append(packet[0])
             data = fd.read(1024)
             while data:
                 if sys.getsizeof(data)<1024:
                     break
-                packet = makePacket("get",seq,1,data.decode())
+                packet = makePacket("get",seq,1,data.decode(),self.agent.send_addr,self.agent.list_address)
                 packets.append(packet[0])
                 seq += 1
 
             if data:
-                packet = makePacket("get",seq,0,data.decode())
+                packet = makePacket("get",seq,0,data.decode(),self.agent.send_addr,self.agent.list_address)
                 packets.append(packet[0])
             
             fd.close()
             self.statusTL.acquire()
             self.statusTable.update(self.statusTable.entry("Upload",file,self.agent.list_port,self.agent.list_port,len(packets)))
-            update = makePacket("TU",0,0,self.statusTable.entry("Download",file,self.agent.list_address,self.agent.list_port,len(packets)))
+            update = makePacket("TU",0,0,self.statusTable.entry("Download",file,self.agent.list_address,self.agent.list_port,len(packets)),self.agent.send_addr,self.agent.list_address)
             self.statusTL.release()
             q.put(update)
             q.put(packets)
         except IOError:
             print("Can't open file for sending")
-            q.put(makePacket("err",0,0,"Server can't open file for sending"))
-
-
-
+            q.put(makePacket("err",0,0,"Server can't open file for sending",self.agent.send_addr,self.agent.list_address))
 
     def receive_akn(self,packet):
         self.rlock.acquire()
@@ -182,22 +169,21 @@ class TransfereCC:
             self.send_time.stop()
         self.rlock.release()
         
-
-
     def receiver_window(self,packet,q,expected,address,file):
         table = []
         self.agent.send_addr = address[0]
         self.agent.send_port = int(address[1])
         
-        if packet["type"] == "ACK":
-           self.receive_akn(packet)
+        csum = checksum_calc(packet["data"],self.agent.send_addr,self.agent.list_address)
 
+        if packet["type"] == "akw":
+            self.receive_akn(packet)
+
+        elif(packet["sequence"] == expected and csum == packet["csum"]):
         
-        elif(packet["sequence"] == expected):
-            
             if packet["type"] != "end":
 
-                q.put(makePacket("ACK",expected,packet["offset"],""))
+                q.put(makePacket("akw",expected,packet["offset"],"",self.agent.send_addr,self.agent.list_address))
                 expected += 1
 
                 if packet["type"] == "CN":    
@@ -209,7 +195,7 @@ class TransfereCC:
                     self.inputLock.acquire()
                     self.connected = True
                     self.inputLock.release()
-                    print("\nConectado\nINSTRUÇÕES: put_file file | get_file file | get ls\n")
+                    print("Conectado\n INSTRUÇÕES: put_file file | \n")
 
                 elif (packet["type"] == "TU"):
                     self.statusTL.acquire()
@@ -224,25 +210,20 @@ class TransfereCC:
                     if table:
                         q.put(table)
                     else:
-                        q.put(makePacket("err",0,0,"No Files!"))
+                        q.put(makePacket("err",0,0,"No Files!",self.agent.send_addr,self.agent.list_address))
 
                 
                 elif (packet["type"] == "ST"):
                     print(packet["data"])
 
-
-                
                 elif(packet["type"] == "fgt"):
                         if self.statusTable.has_file(packet["data"]):
                             Thread(target=self.send_file,args=(packet["data"],q)).start()
                         else:
-                            q.put(makePacket("err",0,0,"No file " + packet["data"] +" found!"))
+                            q.put(makePacket("err",0,0,"No file " + packet["data"] +" found!",self.agent.send_addr,self.agent.list_address))
 
-                
                 elif(packet["type"] == "err"):
-                        print(packet["data"])
-            
-                
+                        print(packet["data"])              
 
                 elif(packet["type"] == "get"):
 
@@ -270,7 +251,7 @@ class TransfereCC:
                 expected = 0
 
         else:
-            q.put(makePacket("ACK",expected-1,packet["offset"],""))
+            q.put(makePacket("akw",expected-1,packet["offset"],"",self.agent.send_addr,self.agent.list_address))
             
         return expected,file
 
@@ -281,17 +262,60 @@ class TransfereCC:
         seq_number = 0
         packets = []
         for entry in table:
-            packet = makePacket("ST",seq_number,1,entry)
+            packet = makePacket("ST",seq_number,1,entry,self.agent.send_addr,self.agent.list_address)
             packets.append(packet[0])
             seq_number+=1
 
         return packets
 
+def checksum_calc(data,src_ip,dest_ip):
+     checksum = 0
+
+     b_src = bytes(src_ip.encode('utf-8'))
+     b_dest = bytes(dest_ip.encode('utf-8'))
+     
+     if type(data) == dict: 
+         data = data["File"]
+
+     if type(data) != bytes:
+          data = bytes(data.encode('utf-8'))
+
+     data_len = len(data)
+     src_len = len(b_src)
+     dest_len = len(b_dest)
+
+     if (data_len%2) == 1:
+          data_len += 1
+          data += struct.pack('!B',0)
+
+     for i in range(0,len(data),2):
+          w = (data[i] << 8) + (data[i+1])
+          checksum += w
+     
+     if (src_len%2) == 1:
+          src_len += 1
+          b_src += struct.pack('!B',0)
+
+     for i in range(0,len(b_src),2):
+          w = (b_src[i] << 8) + (b_src[i+1])
+          checksum += w
+     
+     if (dest_len%2) == 1:
+          dest_len += 1
+          b_dest += struct.pack('!B',0)
+
+     for i in range(0,len(b_dest),2):
+          w = (b_dest[i] << 8) + (b_dest[i+1])
+          checksum += w
+
+     checksum = (checksum >> 16) + (checksum & 0xFFFF)
+     
+     return checksum
 
 
-def makePacket(type,seq_number,offset,data):
-
+def makePacket(type,seq_number,offset,data,src_ip,dest_ip):
     packet = PDU(type,seq_number,offset,0,data)
+    packet.packet["csum"] = checksum_calc(data,src_ip,dest_ip)
     return [packet]
 
 
