@@ -80,11 +80,10 @@ class TransfereCC:
 
             self.inputLock.acquire()
             if (self.input and not self.connected):
-                print(str(self.input) + str(self.connected))
-                reply = input("Deseja aceitar a conexão?\n")
+                reply = input("Deseja aceitar a conexão?(y/n)\n")
                 q.put(makePacket(reply,0,0,"",self.agent.send_addr,self.agent.list_address))
                 if reply == "y":
-                    print("Conectado\n INSTRUÇÕES: put_file file | \n")
+                    print("Conectado\n INSTRUÇÕES: put_file file | get_file file | get ls \n")
                     self.connected = True
 
             self.inputLock.release()
@@ -195,7 +194,7 @@ class TransfereCC:
                     self.inputLock.acquire()
                     self.connected = True
                     self.inputLock.release()
-                    print("Conectado\n INSTRUÇÕES: put_file file | \n")
+                    print("Conectado\n INSTRUÇÕES: put_file file | get_file file | get ls\n")
 
                 elif (packet["type"] == "TU"):
                     self.statusTL.acquire()

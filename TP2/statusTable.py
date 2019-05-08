@@ -27,7 +27,7 @@ class StatusTable:
 		self.dictionary.append(entry)
 
 	def print_table(self):
-		print(self.dictionary+"\n")
+		print(self.dictionary)
 
 
 	def get_type(self,type):

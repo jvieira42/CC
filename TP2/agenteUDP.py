@@ -19,7 +19,7 @@ class AgentUDP:
 		_,ready,_ = select.select([],[self.agentSock],[])
 		if ready[0]:
 			self.agentSock.sendto(str.encode("utf-8"), (self.send_addr, self.send_port))
-		print ("Packet Sent: " + str + "\n")
+		print ("\nPacket Sent: " + str + "\n")
 
 	def receivePacket(self):
 		ready = select.select([self.agentSock],[],[])
