@@ -112,7 +112,6 @@ class TransfereCC:
 
                 while self.send_time.running() and not self.send_time.timeout():
                     self.rlock.release()
-                    time.sleep(0.5)
                     self.rlock.acquire()
 
                 if self.send_time.timeout():
