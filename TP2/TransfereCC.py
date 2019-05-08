@@ -80,10 +80,10 @@ class TransfereCC:
 
             self.inputLock.acquire()
             if (self.input and not self.connected):
-                reply = input("Deseja aceitar a conexão?(y/n)\n")
+                reply = input("Deseja aceitar a conexão?(y)\n")
                 q.put(makePacket(reply,0,0,"",self.agent.send_addr,self.agent.list_address))
                 if reply == "y":
-                    print("Conectado\n INSTRUÇÕES: put_file file | get_file file | get ls \n")
+                    print("Conectado\n INSTRUÇÕES: put_file file | get_file file | get ls | ls \n")
                     self.connected = True
 
             self.inputLock.release()
@@ -133,6 +133,7 @@ class TransfereCC:
     
     def send_file(self,file,q):
         try:
+            print("OPENING!!!!")
             fd = open (file,'rb')
             seq = 1
             packets = []
@@ -140,16 +141,13 @@ class TransfereCC:
             packets.append(packet[0])
             data = fd.read(1024)
             while data:
-                if sys.getsizeof(data)<1024:
-                    break
                 packet = makePacket("get",seq,1,data.decode(),self.agent.send_addr,self.agent.list_address)
                 packets.append(packet[0])
+                data = fd.read(1024)
                 seq += 1
 
-            if data:
-                packet = makePacket("get",seq,0,data.decode(),self.agent.send_addr,self.agent.list_address)
-                packets.append(packet[0])
-            
+            packets[-1].packet["offset"] = 0
+            print("CLOSING!!!")
             fd.close()
             self.statusTL.acquire()
             self.statusTable.update(self.statusTable.entry("Upload",file,self.agent.list_port,self.agent.list_port,len(packets)))
@@ -194,7 +192,7 @@ class TransfereCC:
                     self.inputLock.acquire()
                     self.connected = True
                     self.inputLock.release()
-                    print("Conectado\n INSTRUÇÕES: put_file file | get_file file | get ls\n")
+                    print("Conectado\n INSTRUÇÕES: put_file file | get_file file | get ls | ls\n")
 
                 elif (packet["type"] == "TU"):
                     self.statusTL.acquire()
