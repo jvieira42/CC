@@ -97,7 +97,7 @@ class TransfereCC:
         window = min(4, n_packets - self.start_w)
         self.rlock.release()
 
-        if(packets[n_packets-1].packet["type"] == "akw"):
+        if(packets[n_packets-1].packet["type"] == "ACK"):
             self.agent.sendPacket(packets[0])
         else:   
             while (self.start_w < n_packets):
@@ -175,14 +175,14 @@ class TransfereCC:
         
         csum = checksum_calc(packet["data"],self.agent.send_addr,self.agent.list_address)
 
-        if packet["type"] == "akw":
+        if packet["type"] == "ACK":
             self.receive_akn(packet)
 
         elif(packet["sequence"] == expected and csum == packet["csum"]):
         
             if packet["type"] != "end":
 
-                q.put(makePacket("akw",expected,packet["offset"],"",self.agent.send_addr,self.agent.list_address))
+                q.put(makePacket("ACK",expected,packet["offset"],"",self.agent.send_addr,self.agent.list_address))
                 expected += 1
 
                 if packet["type"] == "CN":    
@@ -250,7 +250,7 @@ class TransfereCC:
                 expected = 0
 
         else:
-            q.put(makePacket("akw",expected-1,packet["offset"],"",self.agent.send_addr,self.agent.list_address))
+            q.put(makePacket("ACK",expected-1,packet["offset"],"",self.agent.send_addr,self.agent.list_address))
             
         return expected,file
 
