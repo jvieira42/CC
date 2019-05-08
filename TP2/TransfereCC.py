@@ -126,8 +126,8 @@ class TransfereCC:
                 self.rlock.release()
             
             
-                packet = makePacket("end",next_p,0,"",self.agent.send_addr,self.agent.list_address)
-                self.agent.sendPacket(packet[0])    
+            packet = makePacket("end",next_p,0,"",self.agent.send_addr,self.agent.list_address)
+            self.agent.sendPacket(packet[0])    
 
     
     
